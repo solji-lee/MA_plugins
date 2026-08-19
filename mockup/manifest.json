@@ -1,0 +1,17 @@
+{
+  "name": "Mockup",
+  "id": "1671709213795792281",
+  "api": "1.0.0",
+  "editorType": [
+    "figma"
+  ],
+  "main": "code.js",
+  "ui": "ui.html",
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": [
+      "none"
+    ],
+    "reasoning": "Everything runs locally — the warp happens in the plugin UI and the result is written back with figma.createImage."
+  }
+}

@@ -1,0 +1,334 @@
+<!-- Mockup Map — plugin UI. The warp runs here because the plugin sandbox has no
+     canvas/image APIs; only this iframe can decode and re-encode PNG bytes. -->
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 12px;
+    font: 11px/1.45 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #fff; color: #1e1e1e;
+  }
+  @media (prefers-color-scheme: dark) { body { background: #2c2c2c; color: #e6e6e6; } }
+
+  .row { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 6px; background: rgba(127,127,127,.1); }
+  .row + .row { margin-top: 6px; }
+  .tag { flex: none; width: 52px; font-weight: 600; opacity: .6; }
+  .val { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .val.empty { opacity: .45; }
+  .meta { opacity: .5; font-size: 10px; }
+
+  button {
+    font: inherit; border-radius: 6px; border: 1px solid rgba(127,127,127,.35);
+    background: transparent; color: inherit; padding: 6px 10px; cursor: pointer;
+  }
+  button:hover:not(:disabled) { background: rgba(127,127,127,.14); }
+  button:disabled { opacity: .4; cursor: default; }
+  button.primary { background: #0d99ff; border-color: #0d99ff; color: #fff; width: 100%; padding: 9px; font-weight: 600; }
+  button.primary:hover:not(:disabled) { background: #0b87e3; }
+
+  .opts { display: flex; align-items: center; gap: 10px; margin: 12px 0 10px; flex-wrap: wrap; }
+  label { display: flex; align-items: center; gap: 5px; }
+  select, input[type=number] {
+    font: inherit; color: inherit; background: transparent;
+    border: 1px solid rgba(127,127,127,.35); border-radius: 5px; padding: 3px 5px;
+  }
+  .modes { display: flex; gap: 14px; margin: 0 0 10px; }
+  .modes label.off { opacity: .38; }
+  .actions { display: flex; gap: 6px; margin-top: 8px; }
+  .actions button { flex: 1; }
+  #status { margin-top: 10px; min-height: 30px; font-size: 10px; white-space: pre-wrap; }
+  #status.err { color: #e5484d; }
+  #status.ok { color: #30a46c; }
+</style>
+
+<div class="row">
+  <span class="tag">화면</span>
+  <span class="val empty" id="screen">—</span>
+</div>
+<div class="row">
+  <span class="tag">소스</span>
+  <span class="val empty" id="source">—</span>
+</div>
+
+<div class="opts">
+  <label>배율
+    <select id="scale">
+      <option value="1">1x</option>
+      <option value="2" selected>2x</option>
+      <option value="3">3x</option>
+    </select>
+  </label>
+  <label>회전
+    <select id="rotate">
+      <option value="0" selected>0°</option>
+      <option value="1">90°</option>
+      <option value="2">180°</option>
+      <option value="3">270°</option>
+    </select>
+  </label>
+  <label><input type="checkbox" id="mirror"> 반전</label>
+</div>
+
+<div class="modes">
+  <label><input type="radio" name="mode" value="image" id="mode-image" checked> 이미지로 굽기</label>
+  <label id="lbl-frame"><input type="radio" name="mode" value="frame" id="mode-frame"> 프레임 그대로</label>
+</div>
+
+<button class="primary" id="apply" disabled>화면 넣기</button>
+<div class="actions">
+  <button id="swap" disabled>역할 바꾸기</button>
+  <button id="revert" disabled>되돌리기</button>
+</div>
+
+<div id="status"></div>
+
+<script id="warp-core">
+// ---------------------------------------------------------------------------
+// Pure geometry + resampling. No DOM, no Figma API — test/verify.mjs pulls this
+// block out verbatim and runs it in Node, so keep it dependency-free.
+// ---------------------------------------------------------------------------
+
+// --- shared:geometry (byte-identical across code.js and ui.html; test/verify.js enforces it)
+function parseQuadPath(d) {
+  const nums = (d.match(/-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?/g) || []).map(Number);
+  if (nums.length % 2) throw new Error('path has an odd number of coordinates');
+  const pts = [];
+  for (let i = 0; i < nums.length; i += 2) {
+    const p = [nums[i], nums[i + 1]];
+    const last = pts[pts.length - 1];
+    if (last && Math.hypot(p[0] - last[0], p[1] - last[1]) < 1e-6) continue;
+    pts.push(p);
+  }
+  if (pts.length > 1) {
+    const a = pts[0], b = pts[pts.length - 1];
+    if (Math.hypot(a[0] - b[0], a[1] - b[1]) < 1e-6) pts.pop();
+  }
+  if (pts.length !== 4) throw new Error('expected a 4-point quad, got ' + pts.length);
+  return pts;
+}
+
+// A quad whose corners line up on two x values and two y values needs no warp —
+// an image fill already lands exactly there, and stays sharper for it.
+function isAxisAlignedRect(pts, tol) {
+  if (pts.length !== 4) return false;
+  const xs = pts.map(p => p[0]).sort((a, b) => a - b);
+  const ys = pts.map(p => p[1]).sort((a, b) => a - b);
+  return Math.abs(xs[0] - xs[1]) <= tol && Math.abs(xs[2] - xs[3]) <= tol &&
+         Math.abs(ys[0] - ys[1]) <= tol && Math.abs(ys[2] - ys[3]) <= tol;
+}
+// --- end shared:geometry
+
+// Assign corner roles: [top-left, top-right, bottom-right, bottom-left].
+// Which opposing edge pair is top/bottom is decided by the source aspect ratio,
+// which is what makes landscape mockups work as well as portrait ones.
+function orderCorners(pts, srcW, srcH) {
+  let area = 0;
+  for (let i = 0; i < 4; i++) {
+    const a = pts[i], b = pts[(i + 1) % 4];
+    area += a[0] * b[1] - b[0] * a[1];
+  }
+  // y points down on screen, so a positive shoelace sum means clockwise
+  const q = area < 0 ? pts.slice().reverse() : pts.slice();
+
+  const edge = (i) => Math.hypot(q[(i + 1) % 4][0] - q[i][0], q[(i + 1) % 4][1] - q[i][1]);
+  const midY = (i) => (q[i][1] + q[(i + 1) % 4][1]) / 2;
+
+  const wA = (edge(0) + edge(2)) / 2, hA = (edge(1) + edge(3)) / 2;
+  const target = Math.log(Math.max(srcW, 1e-6) / Math.max(srcH, 1e-6));
+  const errA = Math.abs(Math.log(Math.max(wA, 1e-6) / Math.max(hA, 1e-6)) - target);
+  const errB = Math.abs(Math.log(Math.max(hA, 1e-6) / Math.max(wA, 1e-6)) - target);
+  const pair = errA <= errB ? [0, 2] : [1, 3];
+
+  const top = midY(pair[0]) <= midY(pair[1]) ? pair[0] : pair[1];
+  return [0, 1, 2, 3].map((k) => q[(top + k) % 4]);
+}
+
+// Solve the 8 projective coefficients mapping DESTINATION px -> SOURCE px,
+// i.e. the same convention as PIL's Image.PERSPECTIVE.
+function findCoeffs(dst, src) {
+  const M = [], rhs = [];
+  for (let i = 0; i < 4; i++) {
+    const [dx, dy] = dst[i], [sx, sy] = src[i];
+    M.push([dx, dy, 1, 0, 0, 0, -sx * dx, -sx * dy]); rhs.push(sx);
+    M.push([0, 0, 0, dx, dy, 1, -sy * dx, -sy * dy]); rhs.push(sy);
+  }
+  // Gaussian elimination with partial pivoting
+  for (let col = 0; col < 8; col++) {
+    let piv = col;
+    for (let r = col + 1; r < 8; r++) if (Math.abs(M[r][col]) > Math.abs(M[piv][col])) piv = r;
+    if (Math.abs(M[piv][col]) < 1e-12) throw new Error('degenerate quad — the four corners are collinear or coincident');
+    [M[col], M[piv]] = [M[piv], M[col]];
+    [rhs[col], rhs[piv]] = [rhs[piv], rhs[col]];
+    for (let r = 0; r < 8; r++) {
+      if (r === col) continue;
+      const f = M[r][col] / M[col][col];
+      if (!f) continue;
+      for (let c = col; c < 8; c++) M[r][c] -= f * M[col][c];
+      rhs[r] -= f * rhs[col];
+    }
+  }
+  return rhs.map((v, i) => v / M[i][i]);
+}
+
+// Inverse-map every output pixel through the homography, averaging ss*ss
+// subsamples in premultiplied space so edges stay clean.
+function warpToQuad(src, sw, sh, corners, W, H, k, ss) {
+  const [a, b, c, d, e, f, g, h] = findCoeffs(
+    corners.map(([x, y]) => [x * k, y * k]),
+    [[0, 0], [sw, 0], [sw, sh], [0, sh]]
+  );
+  const out = new Uint8ClampedArray(W * H * 4);
+  const taps = ss * ss;
+
+  for (let py = 0; py < H; py++) {
+    for (let px = 0; px < W; px++) {
+      let ar = 0, ag = 0, ab = 0, aa = 0;
+      for (let jy = 0; jy < ss; jy++) {
+        for (let jx = 0; jx < ss; jx++) {
+          const DX = px * ss + jx, DY = py * ss + jy;
+          const den = g * DX + h * DY + 1;
+          if (!den) continue;
+          // the homography works in continuous image space, where the source
+          // spans [0,sw]x[0,sh]; shift by half a pixel to land on pixel centres
+          const u = (a * DX + b * DY + c) / den - 0.5;
+          const v = (d * DX + e * DY + f) / den - 0.5;
+          if (u < -0.5 || v < -0.5 || u > sw - 0.5 || v > sh - 0.5) continue;  // outside -> transparent
+
+          const x0 = Math.floor(u), y0 = Math.floor(v);
+          const fx = u - x0, fy = v - y0;
+          const cx = (n) => (n < 0 ? 0 : n > sw - 1 ? sw - 1 : n);   // clamp at the
+          const cy = (n) => (n < 0 ? 0 : n > sh - 1 ? sh - 1 : n);   // source edges
+          const xa = cx(x0), xb = cx(x0 + 1), ya = cy(y0), yb = cy(y0 + 1);
+          const w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy);
+          const w01 = (1 - fx) * fy, w11 = fx * fy;
+
+          for (const [xx, yy, ww] of [[xa, ya, w00], [xb, ya, w10], [xa, yb, w01], [xb, yb, w11]]) {
+            if (!ww) continue;
+            const i = (yy * sw + xx) * 4;
+            const al = src[i + 3] / 255;          // premultiply so edge pixels
+            const wp = ww * al;                    // don't drag in stray colour
+            ar += src[i] * wp; ag += src[i + 1] * wp; ab += src[i + 2] * wp;
+            aa += ww * al;
+          }
+        }
+      }
+      const o = (py * W + px) * 4;
+      if (aa > 1e-9) {
+        out[o] = ar / aa; out[o + 1] = ag / aa; out[o + 2] = ab / aa;
+        out[o + 3] = (aa / taps) * 255;
+      }
+    }
+  }
+  return out;
+}
+</script>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (msg) => parent.postMessage({ pluginMessage: msg }, '*');
+  let job = null;
+
+  function say(text, cls) {
+    const el = $('status');
+    el.textContent = text || '';
+    el.className = cls || '';
+  }
+
+  // OffscreenCanvas is present in current Figma builds, but fall back to a DOM
+  // canvas so an older client degrades instead of throwing.
+  function makeCanvas(w, h) {
+    if (typeof OffscreenCanvas === 'function') return new OffscreenCanvas(w, h);
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    return c;
+  }
+  function toPng(canvas) {
+    if (canvas.convertToBlob) return canvas.convertToBlob({ type: 'image/png' });
+    return new Promise((res, rej) =>
+      canvas.toBlob((b) => (b ? res(b) : rej(new Error('PNG 인코딩 실패'))), 'image/png'));
+  }
+
+  $('swap').onclick = () => post({ type: 'swap' });
+  $('revert').onclick = () => post({ type: 'revert' });
+  $('apply').onclick = () => {
+    if (!job) return;
+    $('apply').disabled = true;
+    say('내보내는 중…');
+    post({
+      type: 'run',
+      scale: Number($('scale').value),
+      rotate: Number($('rotate').value),
+      mirror: $('mirror').checked,
+      mode: document.querySelector('input[name=mode]:checked').value,
+    });
+  };
+
+  onmessage = async (event) => {
+    const msg = event.data.pluginMessage;
+    if (!msg) return;
+
+    if (msg.type === 'selection') {
+      job = msg.ready ? msg : null;
+      $('screen').textContent = msg.screenName || '—';
+      $('screen').className = 'val' + (msg.screenName ? '' : ' empty');
+      $('source').textContent = msg.sourceName || '—';
+      $('source').className = 'val' + (msg.sourceName ? '' : ' empty');
+      $('apply').disabled = !msg.ready;
+      $('swap').disabled = !msg.canSwap;
+      $('revert').disabled = !msg.canRevert;
+
+      // a perspective quad can't be expressed as a Figma transform, so the
+      // live-frame option only exists for flat (affine) mockups
+      $('mode-frame').disabled = !msg.canLive;
+      $('lbl-frame').className = msg.canLive ? '' : 'off';
+      if (!msg.canLive) $('mode-image').checked = true;
+      const warping = msg.kind === 'quad';
+      $('rotate').disabled = !warping;
+      $('mirror').disabled = !warping;
+
+      say(msg.hint || '', msg.ready ? '' : 'err');
+      return;
+    }
+
+    if (msg.type === 'warp') {
+      try {
+        say('워핑 중…');
+        const t0 = Date.now();
+
+        // decode the exported PNG into raw pixels
+        const bmp = await createImageBitmap(new Blob([msg.png], { type: 'image/png' }));
+        const sc = makeCanvas(bmp.width, bmp.height);
+        const sctx = sc.getContext('2d', { willReadFrequently: true });
+        sctx.drawImage(bmp, 0, 0);
+        const srcData = sctx.getImageData(0, 0, bmp.width, bmp.height).data;
+
+        let corners = orderCorners(parseQuadPath(msg.path), bmp.width, bmp.height);
+        if (msg.mirror) corners = [corners[0], corners[3], corners[2], corners[1]];
+        if (msg.rotate) corners = corners.slice(msg.rotate).concat(corners.slice(0, msg.rotate));
+
+        const ss = 2;
+        const W = Math.round(msg.bboxW * msg.scale);
+        const H = Math.round(msg.bboxH * msg.scale);
+        const pixels = warpToQuad(srcData, bmp.width, bmp.height, corners, W, H, msg.scale * ss, ss);
+
+        // re-encode
+        const oc = makeCanvas(W, H);
+        oc.getContext('2d').putImageData(new ImageData(pixels, W, H), 0, 0);
+        const buf = await (await toPng(oc)).arrayBuffer();
+
+        post({ type: 'apply', png: new Uint8Array(buf), w: W, h: H, ms: Date.now() - t0 });
+      } catch (err) {
+        say('실패: ' + err.message, 'err');
+        post({ type: 'failed' });
+      }
+      return;
+    }
+
+    if (msg.type === 'done') { say(msg.text, 'ok'); $('apply').disabled = false; }
+    if (msg.type === 'error') { say(msg.text, 'err'); $('apply').disabled = false; }
+  };
+
+  post({ type: 'ready' });
+})();
+</script>
