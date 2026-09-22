@@ -1,0 +1,376 @@
+<!-- Color Migration — plugin UI. Mirrors Figma's Check designs panel: findings
+     grouped by context, legacy color on the left, Foundation variable on the
+     right, a dropdown to change it, and one Apply at the bottom. -->
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: var(--figma-color-bg, #fff);
+    --bg2: var(--figma-color-bg-secondary, #f5f5f5);
+    --bg-hover: var(--figma-color-bg-hover, #f0f0f0);
+    --text: var(--figma-color-text, #1e1e1e);
+    --text2: var(--figma-color-text-secondary, #757575);
+    --text3: var(--figma-color-text-tertiary, #a0a0a0);
+    --line: var(--figma-color-border, #e6e6e6);
+    --brand: var(--figma-color-bg-brand, #0d99ff);
+    --brand-text: var(--figma-color-text-onbrand, #fff);
+    --ok: var(--figma-color-text-success, #14ae5c);
+    --ok-bg: var(--figma-color-bg-success-tertiary, #e3f7eb);
+    --warn: var(--figma-color-text-warning, #b86200);
+    --warn-bg: var(--figma-color-bg-warning-tertiary, #fff1d6);
+    --danger: var(--figma-color-text-danger, #e5484d);
+    --chk: rgba(127,127,127,.28);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; font: 11px/16px 'Inter', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+         background: var(--bg); color: var(--text); display: flex; flex-direction: column; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+
+  header { display: flex; align-items: center; gap: 8px; padding: 12px 12px 8px 16px; }
+  header h1 { flex: 1; margin: 0; font-size: 13px; font-weight: 600; }
+  .icon-btn { width: 32px; height: 32px; border-radius: 6px; display: grid; place-items: center; color: var(--text); position: relative; }
+  .icon-btn:hover { background: var(--bg-hover); }
+  .icon-btn.stale::after { content: ''; position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--brand); }
+  .icon-btn svg { width: 16px; height: 16px; }
+
+  .tabs { display: flex; gap: 4px; padding: 0 12px 8px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .tab { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 6px; color: var(--text2); font-weight: 500; font-size: 12px; }
+  .tab:hover { background: var(--bg-hover); }
+  .tab[aria-selected="true"] { background: var(--bg2); color: var(--text); }
+  .tab .n { font-size: 11px; background: var(--bg2); border-radius: 4px; padding: 0 5px; color: var(--text2); font-variant-numeric: tabular-nums; }
+  .tab[aria-selected="true"] .n { background: var(--bg); }
+
+  main { flex: 1; overflow-y: auto; padding: 4px 0 12px; }
+  .meta { padding: 8px 16px 0; color: var(--text2); display: flex; gap: 4px 10px; flex-wrap: wrap; align-items: center; }
+  .meta .link { color: var(--brand); }
+  .banner { margin: 8px 12px 0; padding: 8px 10px; border-radius: 6px; background: var(--bg2); color: var(--text2); }
+  .banner b { color: var(--text); font-weight: 600; }
+  .frames { margin: 8px 12px 0; padding: 10px; border: 1px solid var(--line); border-radius: 8px; }
+  .frames h2 { margin: 0 0 6px; font-size: 11px; font-weight: 600; }
+  .frames label { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+  .frames .why { color: var(--text3); }
+  .frames .warn { color: var(--warn); }
+
+  .group { padding: 14px 16px 6px; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; }
+  .group svg { width: 16px; height: 16px; color: var(--text2); }
+  .group .sep { color: var(--text3); }
+  .row { display: grid; grid-template-columns: 16px minmax(0, 1fr) 12px minmax(0, 1.2fr); align-items: center; gap: 8px; padding: 3px 12px 3px 16px; }
+  .row.off .src { opacity: .55; }
+  input[type=checkbox] { width: 14px; height: 14px; margin: 0; accent-color: var(--brand); }
+  .src { display: flex; align-items: center; gap: 8px; min-width: 0; height: 40px; padding: 0 8px; border-radius: 6px; background: var(--bg2); text-align: left; }
+  .src:hover { background: var(--bg-hover); }
+  .txt { min-width: 0; flex: 1; display: flex; flex-direction: column; }
+  .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+  .sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text3); font-size: 10px; line-height: 13px; }
+  .cnt { color: var(--text3); font-size: 10px; font-variant-numeric: tabular-nums; flex: none; }
+  .arrow { color: var(--text3); text-align: center; }
+  .tgt { display: flex; align-items: center; gap: 8px; min-width: 0; height: 40px; padding: 0 6px 0 8px; border-radius: 6px; border: 1px solid var(--line); text-align: left; }
+  .tgt:hover { border-color: var(--text3); }
+  .tgt.none .nm { color: var(--text3); }
+  .tgt .chev { flex: none; color: var(--text2); }
+  .sw { flex: none; width: 20px; height: 20px; border-radius: 4px; border: 1px solid rgba(127,127,127,.25); position: relative; overflow: hidden;
+        background: conic-gradient(var(--chk) 25%, transparent 0 50%, var(--chk) 0 75%, transparent 0) 0 0 / 8px 8px; }
+  .sw i { position: absolute; inset: 0; }
+  .sw.empty { background: none; border-style: dashed; }
+  .badge { flex: none; font-size: 10px; line-height: 16px; padding: 0 4px; white-space: nowrap; border-radius: 4px; border: 1px solid currentColor; }
+  .badge.ok { color: var(--ok); background: var(--ok-bg); border-color: transparent; }
+  .badge.warn { color: var(--warn); background: var(--warn-bg); border-color: transparent; }
+  .badge.neutral { color: var(--text2); background: var(--bg2); border-color: transparent; }
+  .empty-state { padding: 48px 24px; text-align: center; color: var(--text2); }
+  .empty-state b { display: block; color: var(--text); font-size: 12px; margin-bottom: 4px; }
+
+  footer { display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 16px; border-top: 1px solid var(--line); }
+  footer .sum { flex: 1; color: var(--text2); font-size: 12px; }
+  footer .sum.err { color: var(--danger); }
+  .apply { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 6px; background: var(--brand); color: var(--brand-text); font-weight: 500; font-size: 12px; }
+  .apply .n { background: rgba(0,0,0,.18); border-radius: 4px; padding: 0 6px; font-variant-numeric: tabular-nums; }
+  .apply:disabled { opacity: .4; cursor: default; }
+
+  .pop { position: fixed; z-index: 10; width: 300px; max-height: 360px; display: flex; flex-direction: column; background: var(--bg);
+         border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+  .pop input { margin: 8px; padding: 6px 8px; font: inherit; font-size: 12px; color: var(--text); background: var(--bg2); border: 1px solid transparent; border-radius: 6px; }
+  .pop ul { list-style: none; margin: 0; padding: 0 4px 6px; overflow-y: auto; }
+  .pop li.h { padding: 8px 8px 4px; color: var(--text3); font-size: 10px; font-weight: 600; letter-spacing: .02em; }
+  .pop li.o { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 5px; cursor: pointer; }
+  .pop li.o:hover, .pop li.o.hl { background: var(--bg-hover); }
+  .pop li.o .nm { flex: 1; font-size: 11px; }
+  .pop li.o .sw { width: 16px; height: 16px; }
+  .pop li.o .d { color: var(--text3); font-size: 10px; font-variant-numeric: tabular-nums; }
+  .pop li.skip { color: var(--text2); }
+  .pop li.more { color: var(--brand); }
+</style>
+
+<header>
+  <h1>컬러 이관</h1>
+  <button class="icon-btn" id="rescan" title="다시 검사" aria-label="다시 검사">
+    <svg viewBox="0 0 16 16" fill="none"><path d="M13 8a5 5 0 1 1-1.46-3.54M13 2.5V5h-2.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
+</header>
+<nav class="tabs" role="tablist" id="tabs"></nav>
+<main id="main"><div class="empty-state">검사 중…</div></main>
+<footer>
+  <span class="sum" id="sum" aria-live="polite"></span>
+  <button class="apply" id="apply" disabled>적용 <span class="n" id="applyN">0</span></button>
+</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const post = m => parent.postMessage({ pluginMessage: m }, '*');
+
+let S = null;                // last scan
+let tab = 'go';
+let popRow = null;
+let flash = null;             // result of the last apply, shown until the next edit
+const KIND = { bdl: 'BDL', master: 'Master', masterPrimitive: 'Master 원시', foundationPrimitive: 'Foundation 원시', hex: '스타일·변수 없음', unknown: '알 수 없음' };
+const BADGE = {
+  auto: ['자동', 'ok'], exact: ['정확', 'ok'], match: ['값 일치', 'ok'],
+  approx: ['근사', 'warn'], review: ['확인', 'warn'], prim: ['원시', 'neutral'],
+};
+const ICON = {
+  text: '<path d="M4 4h8M8 4v8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>',
+  badgeText: '<path d="M4 4h8M8 4v8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>',
+  badge: '<rect x="2.5" y="5" width="11" height="6" rx="3" stroke="currentColor" stroke-width="1.2" fill="none"/>',
+  icon: '<path d="M8 2.5l1.7 3.4 3.8.6-2.8 2.6.7 3.7L8 11l-3.4 1.8.7-3.7-2.8-2.6 3.8-.6z" stroke="currentColor" stroke-width="1.1" fill="none" stroke-linejoin="round"/>',
+  divider: '<path d="M2.5 8h11" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>',
+  stroke: '<rect x="3" y="3" width="10" height="10" rx="1.5" stroke="currentColor" stroke-width="1.2" fill="none"/>',
+  scrim: '<rect x="3" y="3" width="10" height="10" rx="1.5" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M3 13L13 3v10z" fill="currentColor" opacity=".35"/>',
+  surface: '<path d="M2.5 5.5h11M2.5 10.5h11M5.5 2.5v11M10.5 2.5v11" stroke="currentColor" stroke-width="1.1"/>',
+};
+const PROP = { fills: 'Fill', strokes: 'Stroke' };
+
+function tokenValue(name, mode) {
+  const t = S && S.tokens[name];
+  return t ? (mode === 'dark' ? t.dark : t.light) : null;
+}
+function sw(v) {
+  return v ? `<span class="sw"><i style="background:${v}"></i></span>` : '<span class="sw empty"></span>';
+}
+// "plain/background/normal" → main "background/normal", sub "plain" — the leaf
+// is what tells rows apart, so it gets the room.
+function splitName(n) {
+  const p = n.split('/');
+  if (p.length <= 2) return [n, ''];
+  return [p.slice(-2).join('/'), p.slice(0, -2).join('/')];
+}
+function bucket(r) { return r.initialChecked ? 'go' : r.initialTarget ? 'check' : 'none'; }
+
+// --- render
+function render() {
+  if (!S) return;
+  const counts = { go: 0, check: 0, none: 0 };
+  S.rows.forEach(r => counts[bucket(r)]++);
+  const TABS = [['go', '바꿀 항목'], ['check', '확인 필요'], ['none', '대상 없음']];
+  $('tabs').innerHTML = TABS.map(([k, l]) =>
+    `<button class="tab" role="tab" data-tab="${k}" aria-selected="${tab === k}">${l}<span class="n">${counts[k]}</span></button>`).join('');
+
+  let html = '';
+  const st = S.stats;
+  const bits = [];
+  if (st.foundation) bits.push(`Foundation 변수 ${st.foundation}곳은 이미 적용됨`);
+  if (st.skippedPaints) bits.push(`그러데이션·이미지 ${st.skippedPaints}곳 건너뜀`);
+  if (st.otherStyles) bits.push(`다른 스타일 ${st.otherStyles}곳`);
+  if (st.skippedInstances) bits.push(`인스턴스 ${st.skippedInstances}개 건너뜀 <button class="link" data-act="instances">안까지 검사</button>`);
+  else if (S.instancesOn) bits.push(`인스턴스 안까지 검사함 <button class="link" data-act="instances">끄기</button>`);
+  if (bits.length) html += `<div class="meta">${bits.join('<span>·</span>')}</div>`;
+  if (S.stale) html += `<div class="banner">선택이 바뀌었습니다. <b>↻</b>를 누르면 지금 선택한 레이어를 검사합니다.</div>`;
+
+  if (S.frames.length) {
+    html += `<div class="frames"><h2>Foundation 다크 모드 지정</h2>` + S.frames.map(f =>
+      `<label><input type="checkbox" data-frame="${f.id}" ${f.checked ? 'checked' : ''}><span class="nm">${esc(f.name)}</span><span class="${f.mixed ? 'warn' : 'why'}">${esc(f.reason)}</span></label>`).join('') + `</div>`;
+  }
+
+  const list = S.rows.filter(r => bucket(r) === tab);
+  if (!S.rows.length) {
+    html += `<div class="empty-state"><b>바꿀 레거시 컬러가 없습니다</b>선택한 레이어는 이미 Foundation 변수를 쓰고 있거나 단색 페인트가 없습니다.</div>`;
+  } else if (!list.length) {
+    html += `<div class="empty-state">이 탭에 해당하는 항목이 없습니다.</div>`;
+  } else {
+    const groups = new Map();
+    for (const r of list) {
+      const g = r.contextLabel + '|' + r.prop;
+      if (!groups.has(g)) groups.set(g, { r: r, rows: [] });
+      groups.get(g).rows.push(r);
+    }
+    for (const { r: g, rows } of groups.values()) {
+      html += `<div class="group"><svg viewBox="0 0 16 16" fill="none">${ICON[g.context] || ICON.surface}</svg>${esc(g.contextLabel)}<span class="sep">›</span>${PROP[g.prop]}</div>`;
+      for (const r of rows) html += rowHtml(r);
+    }
+  }
+  $('main').innerHTML = html;
+  footer();
+}
+function rowHtml(r) {
+  const sub = [KIND[r.kind] || r.kind];
+  if (r.styleMode) sub.push(r.styleMode === 'dark' ? 'Dark' : 'Light');
+  if (r.kind !== 'hex') sub.push(r.value);
+  if (r.mode === 'dark' && !r.styleMode) sub.push('다크 프레임');
+  const b = r.target && BADGE[r.status];
+  const approxNote = r.status === 'approx' || r.status === 'review' ? (() => {
+    const c = r.candidates.filter(x => x.name === r.target)[0];
+    return c ? ` ΔE ${c.dE.toFixed(1)}` : '';
+  })() : '';
+  return `<div class="row${r.checked ? '' : ' off'}" data-id="${esc(r.id)}">
+    <input type="checkbox" data-check="${esc(r.id)}" ${r.checked ? 'checked' : ''} ${r.target ? '' : 'disabled'} aria-label="${esc(r.name)} 바꾸기">
+    <button class="src" data-select="${esc(r.id)}" title="${esc(r.note || '레이어 선택')}">
+      ${sw(r.value)}<span class="txt"><span class="nm" title="${esc(r.name)}">${esc(r.name.replace(/^Semantic\//, ''))}</span><span class="sub">${esc(sub.join(' · '))}</span></span>
+      <span class="cnt">${r.count}곳</span></button>
+    <span class="arrow">→</span>
+    <button class="tgt${r.target ? '' : ' none'}" data-pick="${esc(r.id)}" aria-haspopup="listbox" aria-label="${esc(r.name)} 목적지 바꾸기">
+      ${sw(r.target ? tokenValue(r.target, r.mode) : null)}
+      <span class="txt">${r.target ? (() => { const [a, z] = splitName(r.target);
+        return `<span class="nm" title="${esc(r.target)}">${esc(a)}</span><span class="sub">${esc(z || (S.tokens[r.target].collection === 'colorScale' ? 'Foundation 원시' : ''))}</span>`; })()
+        : '<span class="nm">대상 없음 · 고르기</span>'}</span>
+      ${b ? `<span class="badge ${b[1]}">${b[0]}${approxNote}</span>` : ''}
+      <svg class="chev" width="10" height="10" viewBox="0 0 10 10"><path d="M2.5 4l2.5 2.5L7.5 4" stroke="currentColor" fill="none" stroke-width="1.2"/></svg>
+    </button></div>`;
+}
+function footer() {
+  const on = S ? S.rows.filter(r => r.checked && r.target) : [];
+  const places = on.reduce((a, r) => a + r.count, 0);
+  const frames = S ? S.frames.filter(f => f.checked).length : 0;
+  $('applyN').textContent = on.length + (frames ? '+' + frames : '');
+  $('apply').disabled = !on.length && !frames;
+  const s = $('sum'); s.classList.remove('err');
+  if (flash) { s.textContent = flash.text; s.classList.toggle('err', flash.err); s.title = flash.title || ''; return; }
+  s.title = '';
+  s.textContent = on.length || frames
+    ? `컬러 ${on.length}종 · ${places}곳을 바꿉니다` + (frames ? ` · 다크 모드 ${frames}개` : '')
+    : (S && S.rows.length ? '바꿀 항목을 체크하세요' : '');
+}
+
+// --- dropdown
+function openPop(r, anchor) {
+  closePop();
+  popRow = r;
+  const pop = document.createElement('div');
+  pop.className = 'pop'; pop.id = 'pop'; pop.setAttribute('role', 'dialog');
+  pop.innerHTML = '<input type="search" placeholder="토큰 검색 · 이름이나 hex" aria-label="토큰 검색"><ul role="listbox"></ul>';
+  document.body.appendChild(pop);
+  const rc = anchor.getBoundingClientRect();
+  const x = Math.min(rc.right - 300, innerWidth - 308);
+  pop.style.left = Math.max(8, x) + 'px';
+  const h = pop.offsetHeight;
+  pop.style.top = (rc.bottom + 4 + h > innerHeight - 8 ? Math.max(8, rc.top - h - 4) : rc.bottom + 4) + 'px';
+  const inp = pop.querySelector('input');
+  inp.oninput = () => fillPop(inp.value, false);
+  inp.onkeydown = popKey;
+  pop.querySelector('ul').onclick = e => {
+    const li = e.target.closest('li[data-v]'); if (!li) return;
+    if (li.dataset.v === '__all') { fillPop(inp.value, true); inp.focus(); return; }
+    choose(li.dataset.v);
+  };
+  fillPop('', false);
+  inp.focus();
+}
+let popItems = [], popHl = 0;
+function fillPop(q, all) {
+  const r = popRow; q = q.trim().toLowerCase();
+  const opt = (v, name, extra) => { popItems.push(v); return `<li class="o" data-v="${esc(v)}" role="option">${sw(tokenValue(name, r.mode))}<span class="nm">${esc(name)}</span>${extra || ''}</li>`; };
+  popItems = [];
+  let h = '';
+  if (!q && !all) {
+    if (r.candidates.length) {
+      h += `<li class="h">추천 · ${esc(r.contextLabel)}</li>`;
+      for (const c of r.candidates) h += opt(c.name, c.name, `<span class="d">${c.exact ? '정확' : c.hint ? '역할 · ΔE ' + c.dE.toFixed(1) : 'ΔE ' + c.dE.toFixed(1)}</span>`);
+    }
+    if (r.fallback) { h += `<li class="h">원시 대응</li>` + opt(r.fallback, r.fallback, '<span class="d">원시</span>'); }
+    if (r.tableTarget && r.candidates.every(c => c.name !== r.tableTarget) && r.tableTarget !== r.fallback) {
+      h += `<li class="h">매핑표</li>` + opt(r.tableTarget, r.tableTarget);
+    }
+    popItems.push('__all'); h += `<li class="o more" data-v="__all" role="option">전체 토큰 보기</li>`;
+  } else {
+    const names = Object.keys(S.tokens).filter(n => !q || n.toLowerCase().includes(q) ||
+      S.tokens[n].light.toLowerCase().includes(q) || S.tokens[n].dark.toLowerCase().includes(q));
+    for (const [col, label] of [['colorSemantic', '시맨틱'], ['colorScale', '원시']]) {
+      const ns = names.filter(n => S.tokens[n].collection === col);
+      if (!ns.length) continue;
+      h += `<li class="h">${label} ${ns.length}</li>` + ns.map(n => opt(n, n)).join('');
+    }
+    if (!names.length) h += '<li class="h">맞는 토큰이 없습니다</li>';
+  }
+  popItems.push('__skip'); h += `<li class="o skip" data-v="__skip" role="option">바꾸지 않음</li>`;
+  $('pop').querySelector('ul').innerHTML = h;
+  popHl = 0; markPop();
+}
+function markPop() {
+  $('pop').querySelectorAll('li.o').forEach((li, i) => { li.classList.toggle('hl', i === popHl); if (i === popHl) li.scrollIntoView({ block: 'nearest' }); });
+}
+function popKey(e) {
+  if (e.key === 'ArrowDown') { popHl = Math.min(popItems.length - 1, popHl + 1); markPop(); e.preventDefault(); }
+  else if (e.key === 'ArrowUp') { popHl = Math.max(0, popHl - 1); markPop(); e.preventDefault(); }
+  else if (e.key === 'Enter') { const v = popItems[popHl]; if (v === '__all') fillPop(e.target.value, true); else if (v) choose(v); e.preventDefault(); }
+  else if (e.key === 'Escape') closePop(true);
+}
+function choose(v) {
+  const r = popRow, id = r.id;
+  flash = null;
+  if (v === '__skip') r.checked = false;
+  else {
+    r.target = v; r.checked = true;
+    const c = r.candidates.filter(x => x.name === v)[0];
+    r.status = v === r.fallback && !c ? 'prim' : c && c.exact ? 'exact' : c && c.dE <= 3 ? 'approx' : 'review';
+  }
+  closePop();
+  render();
+  const btn = document.querySelector(`[data-pick="${CSS.escape(id)}"]`); if (btn) btn.focus();
+}
+function closePop(refocus) {
+  const p = $('pop'); if (!p) return;
+  p.remove();
+  if (refocus && popRow) { const btn = document.querySelector(`[data-pick="${CSS.escape(popRow.id)}"]`); if (btn) btn.focus(); }
+}
+
+// --- events
+document.addEventListener('click', e => {
+  const t = e.target;
+  if ($('pop') && !$('pop').contains(t) && !t.closest('[data-pick]')) closePop();
+  const tb = t.closest('[data-tab]'); if (tb) { tab = tb.dataset.tab; render(); return; }
+  const pk = t.closest('[data-pick]'); if (pk) { const r = S.rows.filter(x => x.id === pk.dataset.pick)[0]; if ($('pop') && popRow === r) closePop(); else openPop(r, pk); return; }
+  const se = t.closest('[data-select]'); if (se) { post({ type: 'select', id: se.dataset.select }); return; }
+  const ac = t.closest('[data-act="instances"]'); if (ac) { S.instancesOn = !S.instancesOn; post({ type: 'instances', on: S.instancesOn }); return; }
+});
+document.addEventListener('change', e => {
+  flash = null;
+  const c = e.target.closest('[data-check]');
+  if (c) { const r = S.rows.filter(x => x.id === c.dataset.check)[0]; r.checked = c.checked; c.closest('.row').classList.toggle('off', !c.checked); footer(); return; }
+  const f = e.target.closest('[data-frame]');
+  if (f) { S.frames.filter(x => x.id === f.dataset.frame)[0].checked = f.checked; footer(); }
+});
+$('rescan').onclick = () => { flash = null; $('rescan').classList.remove('stale'); post({ type: 'rescan' }); };
+$('apply').onclick = () => {
+  if (!S) return;
+  $('apply').disabled = true; $('sum').textContent = '적용 중…';
+  post({ type: 'apply',
+         rows: S.rows.filter(r => r.checked && r.target).map(r => ({ id: r.id, target: r.target })),
+         frames: S.frames.filter(f => f.checked).map(f => f.id) });
+};
+addEventListener('resize', () => closePop());
+
+onmessage = e => {
+  const m = e.data.pluginMessage; if (!m) return;
+  if (m.type === 'scanning') { $('sum').textContent = '검사 중…'; return; }
+  if (m.type === 'empty') {
+    S = null; $('tabs').innerHTML = '';
+    $('main').innerHTML = '<div class="empty-state"><b>검사할 프레임을 선택하세요</b>선택한 레이어 안의 BDL 스타일, MDS Master 변수, 원시 컬러, hex를 찾아 Foundation 변수로 바꿉니다.</div>';
+    $('sum').textContent = ''; $('apply').disabled = true; $('applyN').textContent = '0'; return;
+  }
+  if (m.type === 'selectionChanged') { $('rescan').classList.add('stale'); if (S) { S.stale = true; render(); } else post({ type: 'rescan' }); return; }
+  if (m.type === 'scan') {
+    const instancesOn = S ? S.instancesOn : false;
+    S = m; S.instancesOn = instancesOn; S.stale = false; $('rescan').classList.remove('stale');
+    for (const r of S.rows) { r.initialChecked = r.checked; r.initialTarget = r.target; r.tableTarget = r.target; }
+    const c = { go: 0, check: 0, none: 0 }; S.rows.forEach(r => c[bucket(r)]++);
+    if (!c[tab]) tab = c.go ? 'go' : c.check ? 'check' : 'none';
+    render(); return;
+  }
+  if (m.type === 'applied') {
+    flash = { text: `컬러 ${m.changed}곳을 바꿨습니다` + (m.frames ? ` · 다크 모드 ${m.frames}개` : '') + (m.failed.length ? ` · 실패 ${m.failed.length}곳 (마우스를 올리면 목록)` : ''),
+              err: m.failed.length > 0, title: m.failed.join('\n') };
+    footer();
+    return;
+  }
+  if (m.type === 'error') { const s = $('sum'); s.textContent = m.message; s.classList.add('err'); $('apply').disabled = false; }
+};
+</script>

@@ -1,0 +1,17 @@
+{
+  "name": "Color Migration",
+  "id": "1684037599392993685",
+  "api": "1.0.0",
+  "editorType": [
+    "figma"
+  ],
+  "main": "code.js",
+  "ui": "ui.html",
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": [
+      "none"
+    ],
+    "reasoning": "The mapping table ships inside code.js; Foundation variables are imported from the team library through the plugin API."
+  }
+}

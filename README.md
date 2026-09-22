@@ -10,6 +10,7 @@
 | 폴더 | 이름 | 하는 일 | 상태 |
 |---|---|---|---|
 | [`mockup/`](mockup/) | **Mockup** | 목업 안에 화면을 원근에 맞춰 넣는다 | 배포 준비 |
+| [`color-migration/`](color-migration/) | **Color Migration** | BDL · MDS Master 컬러를 MDS 3.0 Foundation 변수로 바꾼다 | 개발 중 · 사내 전용 |
 
 ## 설치 (개발 중인 플러그인)
 
