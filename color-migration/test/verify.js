@@ -91,6 +91,19 @@
   s = sug({ kind: 'bdl', entry: M.bdl['Semantic/Text/basic'], styleMode: 'dark', isText: true, context: 'text' });
   ok('BDL Text/basic → textIcon/normal', s.status === 'auto' && s.target === 'plain/textIcon/normal', s.target);
 
+  log('suggest — name declares a role');
+  s = sug({ kind: 'bdl', entry: M.bdl['bg/gray98%'], styleMode: 'light', context: 'surface' });
+  ok('bg/ 를 면에 쓰면 배경 토큰, 자동', s.target === 'plain/background/subtle' && s.checked && !s.clash, s);
+  s = sug({ kind: 'bdl', entry: M.bdl['bg/gray98%'], styleMode: 'light', context: 'stroke' });
+  ok('bg/ 를 선에 쓰면 이름 기준을 제안하되 확인 필요', s.target === 'plain/background/subtle' && !s.checked && s.clash === 'plain/border/subtle', s);
+  ok('  쓰임 기준 후보도 드롭다운에 들어간다', s.candidates.some(c => c.name === 'plain/border/subtle'), s.candidates.map(c => c.name));
+  s = sug({ kind: 'bdl', entry: M.bdl['stroke/gray90%'], styleMode: 'light', context: 'icon' });
+  ok('stroke/ 는 아이콘 안에서도 선 토큰으로', s.target === 'plain/border/normal' && !s.checked, s);
+  s = sug({ kind: 'bdl', entry: M.bdl['font/white'], styleMode: 'light', context: 'surface' });
+  ok('font/ 를 면에 쓰면 글자 토큰을 제안하되 확인 필요', s.target === 'plain/textIcon/subtle3' && !s.checked, s);
+  s = sug({ kind: 'bdl', entry: M.bdl['font/gray20%'], styleMode: 'light', context: 'icon' });
+  ok('글자색을 아이콘에 쓰는 것은 충돌이 아니다 — 답이 같으므로 자동', s.target === 'plain/textIcon/normal' && s.checked && !s.clash, s);
+
   log('suggest — primitives by context');
   s = sug({ kind: 'bdl', entry: M.bdl['Gray/95'], styleMode: 'light', context: 'surface' });
   ok('BDL Gray/95 surface → plain/background/subtle, exact', s.status === 'exact' && s.target === 'plain/background/subtle', s);
