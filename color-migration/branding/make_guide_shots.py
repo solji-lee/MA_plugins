@@ -25,6 +25,18 @@ W, H = 460, 760
 
 # A representative spread of real mapping rows — enough contexts and statuses
 # to show what the panel actually looks like, not a cherry-picked best case.
+PICKS_TO_MASTER = [
+    ('master', 'plain/background/normal', 'surface', 'fills', False),
+    ('master', 'plain/container/subtle', 'control', 'fills', False),
+    ('master', 'plain/textIcon/normal', 'text', 'fills', True),
+    ('bdl', 'Semantic/Text/basic', 'text', 'fills', True),
+    ('bdl', 'font/gray40%', 'text', 'fills', True),
+    ('bdl', 'Semantic/Badge/red', 'badge', 'fills', False),
+    ('master', 'functional/brand/normal', 'control', 'fills', False),
+    ('bdl', 'stroke/gray90%', 'stroke', 'strokes', False),
+    ('master', 'functional/riskGrade/heavy/1', 'text', 'fills', True),
+    ('masterPrimitive', 'gray/990', 'icon', 'fills', False),
+]
 PICKS = [
     ('bdl', 'Semantic/Bg/white', 'surface', 'fills', False),
     ('bdl', 'Semantic/Bg/box-bg', 'surface', 'fills', False),
@@ -39,7 +51,7 @@ PICKS = [
 ]
 
 
-def node_build_rows():
+def node_build_rows(direction='toMaster'):
     src = open(os.path.join(ROOT, 'code.js'), encoding='utf8').read()
     m = re.search(r'const MAPPING = (/\* mapping:begin \*/.*?/\* mapping:end \*/);', src, re.S)
     c = re.search(r'// --- core:begin[^\n]*\n(.*?)// --- core:end', src, re.S)
@@ -47,21 +59,27 @@ def node_build_rows():
 const M = {m.group(1)};
 {c.group(1)}
 const L = {{}}; M.contexts.forEach(x => L[x.context] = x.label);
-const picks = {json.dumps(PICKS)};
+const DIR = '{direction}';
+const V = DIR === 'toMaster'
+  ? Object.assign({{}}, M.toMaster, {{ bdlAliases: M.bdlAliases, toMaster: M.toMaster }})
+  : Object.assign({{}}, M, {{ semanticCollection: 'colorSemantic' }});
+const picks = {json.dumps(PICKS_TO_MASTER if direction == 'toMaster' else PICKS)};
 const rows = picks.map(([kind, name, ctx, prop, isText], i) => {{
-  const entry = kind === 'bdl' ? M.bdl[name] : kind === 'master' ? M.master[name]
-              : kind === 'masterPrimitive' ? M.masterPrimitive[name] : null;
+  const entry = kind === 'bdl' ? V.bdl[name]
+              : DIR === 'toMaster' ? (kind === 'masterPrimitive' ? V.foundationPrimitive[name] : V.foundation[name])
+              : (kind === 'masterPrimitive' ? M.masterPrimitive[name] : M.master[name]);
   const value = (entry && (entry.light || entry.dark)) || '#CCCCCC';
   const mode = 'light';
   const styleMode = kind === 'bdl' ? 'light' : null;
-  const sug = suggest({{ kind, entry, name, value, isText, context: ctx, mode, styleMode }}, M);
+  const sug = suggest({{ kind, entry, name, value, isText, context: ctx, mode, styleMode }}, V);
   return Object.assign({{ id: 'r' + i, kind, name, value, context: ctx, contextLabel: L[ctx],
     prop, styleMode, mode, count: [22,14,6,31,4,12,9,7,5,3][i], nodeCount: 1,
     note: (entry && entry.note) || '' }}, sug);
 }});
-const stats = {{ foundation: 9, skippedPaints: 1, skippedInstances: 3, otherStyles: 0 }};
+const stats = {{ done: 9, skippedPaints: 1, skippedInstances: 3, otherStyles: 0 }};
 const frames = [{{ id: 'f1', name: '주문 상세', reason: 'BDL Dark/ 스타일', checked: true }}];
-console.log(JSON.stringify({{ type: 'scan', rows, frames, stats, selection: 1, tokens: M.tokens, version: M.version }}));
+console.log(JSON.stringify({{ type: 'scan', rows, frames, stats, selection: 1, tokens: V.tokens,
+  version: M.version, direction: DIR, directionLabel: DIR === 'toMaster' ? 'MDS Master' : 'MDS 3.0 Foundation' }}));
 '''
     out = subprocess.run(['node', '-e', script], cwd=ROOT, capture_output=True, text=True, check=True)
     return out.stdout.strip()
@@ -77,7 +95,7 @@ def shot(html_path, out_path):
 def main():
     if not os.path.exists(CHROME):
         sys.exit(f'Chrome not found at {CHROME} — edit the CHROME constant for this machine')
-    scan_msg = node_build_rows()
+    scan_msg = node_build_rows('toMaster')
     ui = open(os.path.join(ROOT, 'ui.html'), encoding='utf8').read()
     # Headless Chrome fires a synthetic `resize` right before `--screenshot`
     # captures the page, which trips the panel's real (and correct) "resize

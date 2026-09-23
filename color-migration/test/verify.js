@@ -14,7 +14,11 @@
   var cm = src.match(/\/\/ --- core:begin[^\n]*\n([\s\S]*?)\/\/ --- core:end/);
   if (!mm || !cm) throw new Error('mapping or core block not found in code.js');
   var M = new Function('return ' + mm[1])();
-  var core = new Function(cm[1] + '\nreturn { deltaE, glob, normStyleName, parseBdl, lookupVariable, contextOf, rankSemantics, suggest };')();
+  var core = new Function(cm[1] + '\nreturn { deltaE, glob, normStyleName, parseBdl, lookupVariable, systemOf, contextOf, rankSemantics, suggest };')();
+  var R = M.toMaster;                      // 역방향(→ Master) 표
+  function rsug(o) {
+    return core.suggest(Object.assign({ isText: false, context: 'surface', mode: 'light' }, o), R);
+  }
 
   var pass = 0, fail = 0;
   function ok(name, cond, detail) {
@@ -64,12 +68,18 @@
   ok('접두어 없는 표기 변형도 별칭으로 정규화', b && b.key === 'font/gray20%', b && b.key);
 
   log('variables');
-  var fGray10 = M.tokens['gray/10'].key;
-  ok('Foundation gray/10 by key → foundationPrimitive', core.lookupVariable('gray/10', 'colorScale', fGray10, M).kind === 'foundationPrimitive');
-  ok('Master gray/10 by collection → masterPrimitive', core.lookupVariable('gray/10', 'globalcolor', 'deadbeef', M).kind === 'masterPrimitive');
-  ok('name-only gray/10 is ambiguous → unknown', core.lookupVariable('gray/10', null, 'x', M).kind === 'unknown');
-  ok('Master semantic by collection', core.lookupVariable('label/normal', 'mode', 'x', M).kind === 'master');
-  ok('Foundation semantic by key → skipped as foundation', core.lookupVariable('plain/textIcon/normal', 'colorSemantic', M.tokens['plain/textIcon/normal'].key, M).kind === 'foundation');
+  var fGray10 = M.tokens['gray/10'].key, mGray10 = R.tokens['gray/10'].key;
+  ok('Foundation gray/10 은 키로 갈린다', core.systemOf('gray/10', null, fGray10, M).sys === 'foundation');
+  ok('Master gray/10 도 키로 갈린다', core.systemOf('gray/10', null, mGray10, M).sys === 'master');
+  ok('이름만으로는 어느 쪽인지 모른다', core.systemOf('gray/10', null, 'x', M).sys === 'unknown');
+  var TO_F = 'toFoundation', TO_M = 'toMaster';
+  ok('→Foundation: Master 변수는 원본', core.lookupVariable('label/normal', 'mode', 'x', M, TO_F).kind === 'master');
+  ok('→Foundation: Foundation 시맨틱은 건너뛴다', core.lookupVariable('plain/textIcon/normal', 'colorSemantic', M.tokens['plain/textIcon/normal'].key, M, TO_F).kind === 'done');
+  ok('→Foundation: Foundation 원시는 시맨틱을 권한다', core.lookupVariable('gray/10', 'colorScale', fGray10, M, TO_F).kind === 'foundationPrimitive');
+  ok('→Master: Foundation 시맨틱이 원본', core.lookupVariable('plain/textIcon/normal', 'colorSemantic', M.tokens['plain/textIcon/normal'].key, M, TO_M).kind === 'master');
+  ok('→Master: Master 변수는 건너뛴다', core.lookupVariable('label/normal', 'mode', 'x', M, TO_M).kind === 'done');
+  ok('→Master: 표에 없는 Foundation 토큰은 알 수 없음',
+     core.lookupVariable('plain/nope', 'colorSemantic', 'x', M, TO_M).kind === 'unknown');
 
   log('context');
   ok('text', core.contextOf(feat({ type: 'TEXT', names: ['Label', 'Row'] })) === 'text');
@@ -84,6 +94,28 @@
   ok('stroke', core.contextOf(feat({ prop: 'stroke' })) === 'stroke');
   ok('translucent full-screen fill is scrim', core.contextOf(feat({ w: 360, h: 800, opacity: 0.4 })) === 'scrim');
   ok('otherwise surface', core.contextOf(feat({})) === 'surface');
+
+  log('→ Master (역방향)');
+  ok('역방향 표가 세 갈래를 모두 담는다',
+     Object.keys(R.foundation).length === 90 && Object.keys(R.bdl).length === Object.keys(M.bdl).length && R.contexts.length === M.contexts.length);
+  var missingKey = Object.keys(R.tokens).filter(function (n) { return !/^[0-9a-f]{40}$/.test(R.tokens[n].key); });
+  ok('Master 목적지마다 40자리 변수 키', missingKey.length === 0, missingKey.slice(0, 5));
+  var deprecated = Object.keys(R.foundation).filter(function (f) { var t = R.foundation[f].target; return t && t.indexOf('_삭제예정') === 0; });
+  ok('폐기 예정 Master 토큰은 목적지가 되지 않는다', deprecated.length === 0, deprecated);
+  ok('label/normal 로 돌아간다', R.foundation['plain/textIcon/normal'].target === 'label/normal', R.foundation['plain/textIcon/normal']);
+  ok('값이 같은 흰색 둘은 글자·면으로 갈라 둔다',
+     R.foundation['functional/static/white'].target === 'interactive/inverted/normal' &&
+     R.foundation['functional/static/white'].targetText === 'label/invertedNormal', R.foundation['functional/static/white']);
+  ok('값이 바뀌는 자리는 확인 필요', R.foundation['functional/brand/normal'].action === 'review', R.foundation['functional/brand/normal']);
+  ok('Master 에 없는 것은 대상 없음', R.foundation['functional/riskGrade/heavy/1'].action === 'hold' && !R.foundation['functional/riskGrade/heavy/1'].target);
+  ok('원시도 되돌아간다', R.foundationPrimitive['gray/990'].target === 'gray/10', R.foundationPrimitive['gray/990']);
+  s = rsug({ kind: 'master', entry: R.foundation['plain/background/normal'], context: 'surface' });
+  ok('Foundation 면 토큰 → Master 면 토큰', s.target === 'background/common/normal' && s.checked, s);
+  s = rsug({ kind: 'bdl', entry: R.bdl['Semantic/Text/basic'], styleMode: 'light', isText: true, context: 'text' });
+  ok('BDL 도 Master 로 바로 간다', s.target === 'label/normal', s);
+  s = rsug({ kind: 'bdl', entry: R.bdl['Semantic/Grade/Grade-1'], styleMode: 'light', context: 'badge' });
+  ok('등급색은 Master 로 돌리면 값이 달라져 확인 필요', s.target === 'grade/point/1' && !s.checked, s);
+  ok('역방향 맥락 후보는 Master 이름', R.contexts.every(function (c) { return c.candidates.every(function (n) { return !!R.tokens[n]; }); }));
 
   log('suggest — table entries');
   var s = sug({ kind: 'master', entry: M.master['label/normal'], isText: true, context: 'text' });

@@ -34,6 +34,15 @@
   .icon-btn.stale::after { content: ''; position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--brand); }
   .icon-btn svg { width: 16px; height: 16px; }
 
+  .dir { display: flex; gap: 2px; padding: 0 12px 10px; }
+  .dir button { flex: 1; display: flex; flex-direction: column; gap: 1px; align-items: flex-start;
+                padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
+  .dir button:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+  .dir button:last-child { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px; }
+  .dir button[aria-pressed="true"] { background: var(--bg2); border-color: var(--text3); }
+  .dir .t { font-weight: 600; font-size: 12px; }
+  .dir .s { color: var(--text3); font-size: 10px; }
+  .dir button[aria-pressed="true"] .s { color: var(--text2); }
   .tabs { display: flex; gap: 4px; padding: 0 12px 8px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
   .tab { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 6px; color: var(--text2); font-weight: 500; font-size: 12px; }
   .tab:hover { background: var(--bg-hover); }
@@ -108,6 +117,10 @@
     <svg viewBox="0 0 16 16" fill="none"><path d="M13 8a5 5 0 1 1-1.46-3.54M13 2.5V5h-2.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
   </button>
 </header>
+<div class="dir" role="group" aria-label="바꿀 방향">
+  <button type="button" data-dir="toMaster" aria-pressed="true"><span class="t">→ Master</span><span class="s">BDL · Foundation 을 Master 로</span></button>
+  <button type="button" data-dir="toFoundation" aria-pressed="false"><span class="t">→ Foundation</span><span class="s">BDL · Master 를 3.0 으로</span></button>
+</div>
 <nav class="tabs" role="tablist" id="tabs"></nav>
 <main id="main"><div class="empty-state">검사 중…</div></main>
 <footer>
@@ -124,7 +137,12 @@ let S = null;                // last scan
 let tab = 'go';
 let popRow = null;
 let flash = null;             // result of the last apply, shown until the next edit
-const KIND = { bdl: 'BDL', master: 'Master', masterPrimitive: 'Master 원시', foundationPrimitive: 'Foundation 원시', hex: '스타일·변수 없음', unknown: '알 수 없음' };
+// 원본 표시는 방향에 따라 다르다 — 같은 kind 가 한쪽에선 Master, 다른 쪽에선 Foundation.
+const KIND_BY_DIR = {
+  toFoundation: { bdl: 'BDL', master: 'Master', masterPrimitive: 'Master 원시', foundationPrimitive: 'Foundation 원시', hex: '스타일·변수 없음', unknown: '알 수 없음' },
+  toMaster: { bdl: 'BDL', master: 'Foundation', masterPrimitive: 'Foundation 원시', foundationPrimitive: 'Foundation 원시', hex: '스타일·변수 없음', unknown: '알 수 없음' },
+};
+let KIND = KIND_BY_DIR.toMaster;
 const BADGE = {
   auto: ['자동', 'ok'], exact: ['정확', 'ok'], match: ['값 일치', 'ok'],
   approx: ['근사', 'warn'], review: ['확인', 'warn'], prim: ['원시', 'neutral'],
@@ -169,7 +187,7 @@ function render() {
   let html = '';
   const st = S.stats;
   const bits = [];
-  if (st.foundation) bits.push(`Foundation 변수 ${st.foundation}곳은 이미 적용됨`);
+  if (st.done) bits.push(`${esc(S.directionLabel)} 변수 ${st.done}곳은 이미 적용됨`);
   if (st.skippedPaints) bits.push(`그러데이션·이미지 ${st.skippedPaints}곳 건너뜀`);
   if (st.otherStyles) bits.push(`다른 스타일 ${st.otherStyles}곳`);
   if (st.skippedInstances) bits.push(`인스턴스 ${st.skippedInstances}개 건너뜀 <button class="link" data-act="instances">안까지 검사</button>`);
@@ -178,7 +196,7 @@ function render() {
   if (S.stale) html += `<div class="banner">선택이 바뀌었습니다. <b>↻</b>를 누르면 지금 선택한 레이어를 검사합니다.</div>`;
 
   if (S.frames.length) {
-    html += `<div class="frames"><h2>Foundation 다크 모드 지정</h2>` + S.frames.map(f =>
+    html += `<div class="frames"><h2>${esc(S.directionLabel)} 다크 모드 지정</h2>` + S.frames.map(f =>
       `<label><input type="checkbox" data-frame="${f.id}" ${f.checked ? 'checked' : ''}><span class="nm">${esc(f.name)}</span><span class="${f.mixed ? 'warn' : 'why'}">${esc(f.reason)}</span></label>`).join('') + `</div>`;
   }
 
@@ -333,6 +351,14 @@ document.addEventListener('click', e => {
   const pk = t.closest('[data-pick]'); if (pk) { const r = S.rows.filter(x => x.id === pk.dataset.pick)[0]; if ($('pop') && popRow === r) closePop(); else openPop(r, pk); return; }
   const se = t.closest('[data-select]'); if (se) { post({ type: 'select', id: se.dataset.select }); return; }
   const ac = t.closest('[data-act="instances"]'); if (ac) { S.instancesOn = !S.instancesOn; post({ type: 'instances', on: S.instancesOn }); return; }
+  const dr = t.closest('[data-dir]');
+  if (dr && dr.getAttribute('aria-pressed') !== 'true') {
+    flash = null; closePop();
+    document.querySelectorAll('[data-dir]').forEach(b => b.setAttribute('aria-pressed', b === dr));
+    $('sum').textContent = '검사 중…';
+    post({ type: 'direction', value: dr.dataset.dir });
+    return;
+  }
 });
 document.addEventListener('change', e => {
   flash = null;
@@ -356,13 +382,15 @@ onmessage = e => {
   if (m.type === 'scanning') { $('sum').textContent = '검사 중…'; return; }
   if (m.type === 'empty') {
     S = null; $('tabs').innerHTML = '';
-    $('main').innerHTML = '<div class="empty-state"><b>검사할 프레임을 선택하세요</b>선택한 레이어 안의 BDL 스타일, MDS Master 변수, 원시 컬러, hex를 찾아 Foundation 변수로 바꿉니다.</div>';
+    $('main').innerHTML = '<div class="empty-state"><b>검사할 프레임을 선택하세요</b>선택한 레이어 안의 BDL 스타일과 변수, 원시 컬러, hex를 찾아 위에서 고른 쪽 변수로 바꿉니다.</div>';
     $('sum').textContent = ''; $('apply').disabled = true; $('applyN').textContent = '0'; return;
   }
   if (m.type === 'selectionChanged') { $('rescan').classList.add('stale'); if (S) { S.stale = true; render(); } else post({ type: 'rescan' }); return; }
   if (m.type === 'scan') {
     const instancesOn = S ? S.instancesOn : false;
-    S = m; S.instancesOn = instancesOn; S.stale = false; $('rescan').classList.remove('stale');
+    S = m; S.instancesOn = instancesOn; S.stale = false;
+    KIND = KIND_BY_DIR[m.direction] || KIND_BY_DIR.toMaster;
+    document.querySelectorAll('[data-dir]').forEach(b => b.setAttribute('aria-pressed', b.dataset.dir === m.direction)); $('rescan').classList.remove('stale');
     for (const r of S.rows) { r.initialChecked = r.checked; r.initialTarget = r.target; r.tableTarget = r.target; }
     const c = { go: 0, check: 0, none: 0 }; S.rows.forEach(r => c[bucket(r)]++);
     if (!c[tab]) tab = c.go ? 'go' : c.check ? 'check' : 'none';

@@ -1,7 +1,18 @@
 # Color Migration
 
-선택한 프레임 안의 **레거시 컬러를 MDS 3.0 Foundation 변수로** 바꾸는 피그마 플러그인.
+선택한 프레임 안의 컬러를 **한 시스템의 변수로 모아 주는** 피그마 플러그인.
 Figma의 Check designs처럼 원본 → 목적지를 나열하고, 체크한 항목만 적용한다.
+
+방향은 패널 위에서 고른다.
+
+| 방향 | 원본 | 목적지 |
+|---|---|---|
+| **→ Master** (기본값) | BDL 스타일 · Foundation 변수 · 원시 · hex | MDS Master |
+| → Foundation | BDL 스타일 · MDS Master 변수 · 원시 · hex | MDS 3.0 Foundation |
+
+목적지 쪽 변수에 이미 묶인 페인트는 건드리지 않는다. 방향을 바꾸면 다시 검사한다.
+
+아래 표는 **→ Foundation** 기준이다. 반대 방향은 원본과 목적지가 바뀔 뿐 판단은 같은 표에서 나온다.
 
 | 찾는 것 | 알아보는 방법 | 목적지 |
 |---|---|---|
@@ -17,7 +28,7 @@ Figma의 Check designs처럼 원본 → 목적지를 나열하고, 체크한 항
 
 1. Figma 데스크톱 앱 → **Plugins → Development → Import plugin from manifest…**
 2. 이 폴더의 `manifest.json` 선택
-3. 작업 파일에서 **MDS 3.0 Foundation** 라이브러리를 쓸 수 있어야 한다(변수를 키로 불러온다)
+3. 작업 파일에서 목적지 라이브러리(**MDS Master** 또는 **MDS 3.0 Foundation**)를 쓸 수 있어야 한다 — 변수를 키로 불러온다
 
 `manifest.json`의 `id`는 개발용 자리표시자다. 조직 배포할 때 Figma가 발급한 id로 바꾼다.
 사내 토큰 이름과 키가 들어 있으므로 **Community에는 올리지 않는다.**
@@ -57,7 +68,9 @@ Figma의 Check designs처럼 원본 → 목적지를 나열하고, 체크한 항
 
 ## 매핑표 갱신
 
-매핑표 원본은 North_star 저장소 `migration/color/`의 CSV다. 판단을 고칠 때는 그쪽에서 고치고 가져온다.
+매핑표 원본은 North_star 저장소 `migration/color/`의 CSV다. 역방향(→ Master)은 같은 CSV에서
+`build.py`가 함께 만든다 — 판단을 두 벌로 관리하지 않는다. 되돌릴 때 값이 바뀌는 자리는 확인
+필요로, Master에 없던 토큰은 대상 없음으로 나온다. 판단을 고칠 때는 그쪽에서 고치고 가져온다.
 
 ```bash
 python3 ~/Desktop/North_star/migration/color/build.py   # CSV 검증 → mapping.json

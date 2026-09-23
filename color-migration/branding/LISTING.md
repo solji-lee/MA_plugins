@@ -16,7 +16,7 @@ Color Migration
 ## Tagline
 
 ```
-레거시 컬러를 MDS 3.0 Foundation 변수로.
+BDL · Foundation · Master 사이에서 컬러를 한 시스템으로 모읍니다.
 ```
 
 ## Category
@@ -32,11 +32,11 @@ color, design tokens, design system, variables, migration, dark mode
 ## Description
 
 ```markdown
-선택한 프레임의 레거시 컬러(BDL 스타일, MDS Master 변수, 원시 컬러, hex)를
-MDS 3.0 Foundation 변수로 바꿉니다. 뭘 뭘로 바꿀지 먼저 보여주고, 체크한 것만
-적용합니다.
+선택한 프레임의 컬러를 한 시스템의 변수로 모읍니다. 방향은 패널 위에서 고릅니다 —
+BDL 스타일과 Foundation 변수를 MDS Master 로(기본), 또는 BDL 스타일과 Master 변수를
+MDS 3.0 으로. 뭘 뭘로 바꿀지 먼저 보여주고, 체크한 것만 적용합니다.
 
-1. 프레임을 선택하고 실행
+1. 프레임을 선택하고 실행, 위에서 방향 확인
 2. 바꿀 항목 · 확인 필요 · 대상 없음 탭으로 훑기
 3. 필요하면 목적지를 드롭다운에서 바꾸기
 4. 적용 — ⌘Z로 되돌릴 수 있습니다
