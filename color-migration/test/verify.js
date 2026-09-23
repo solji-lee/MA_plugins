@@ -50,6 +50,12 @@
   b = core.parseBdl('Light/Semantic/Button/stock-cancle', M);
   ok('BDL typo alias resolves', b && b.key === 'Semantic/Button/stock-cancel' && b.entry, b && b.key);
   ok('non-BDL style name is ignored', core.parseBdl('Heading/H1', M) === null);
+  b = core.parseBdl('Light/font/gray20%', M);
+  ok('옛 BDL 이름(Light/font/gray20%) → textIcon/normal', b && b.entry && b.entry.target === 'plain/textIcon/normal', b && b.key);
+  b = core.parseBdl('Primary/orange', M);
+  ok('접두어 없는 옛 이름도 표에 있으면 인식', b && b.mode === 'light' && b.entry && b.entry.target === 'functional/brand/normal', b);
+  b = core.parseBdl('font/font-gray-20%', M);
+  ok('접두어 없는 표기 변형도 별칭으로 정규화', b && b.key === 'font/gray20%', b && b.key);
 
   log('variables');
   var fGray10 = M.tokens['gray/10'].key;
