@@ -41,7 +41,13 @@
     });
   });
   ok('every target has a 40-hex Foundation variable key', missing.length === 0, missing.slice(0, 5));
-  ok('contexts carry candidates and demote lists', M.contexts.length === 8 && M.contexts.every(function (c) { return c.candidates.length && Array.isArray(c.demote); }));
+  var CONTEXTS = ['badgeText', 'badge', 'text', 'icon', 'divider', 'control', 'stroke', 'scrim', 'surface'];
+  ok('every context carries candidates and a demote list',
+     M.contexts.length === CONTEXTS.length && M.contexts.every(function (c) { return c.candidates.length && Array.isArray(c.demote); }),
+     M.contexts.map(function (c) { return c.context; }));
+  ok('contexts are ordered most specific first',
+     M.contexts.map(function (c) { return c.context; }).join() === CONTEXTS.join(),
+     M.contexts.map(function (c) { return c.context; }));
 
   log('names');
   ok('normalizes spaced style names', core.normStyleName('Dark / Stock / blue-bright-new') === 'Dark/Stock/blue-bright-new');
@@ -103,6 +109,18 @@
   ok('font/ 를 면에 쓰면 글자 토큰을 제안하되 확인 필요', s.target === 'plain/textIcon/subtle3' && !s.checked, s);
   s = sug({ kind: 'bdl', entry: M.bdl['font/gray20%'], styleMode: 'light', context: 'icon' });
   ok('글자색을 아이콘에 쓰는 것은 충돌이 아니다 — 답이 같으므로 자동', s.target === 'plain/textIcon/normal' && s.checked && !s.clash, s);
+
+  log('suggest — buttons take container, grounds take background');
+  var BTN = ['201 button / 02 negative', 'Frame 33508', 'button', 'con'];
+  ok('버튼 면은 control 맥락', core.contextOf(feat({ type: 'FRAME', names: BTN, w: 81, h: 36 })) === 'control');
+  ok('버튼 위 글자는 그대로 글자', core.contextOf(feat({ type: 'TEXT', names: ['Text'].concat(BTN) })) === 'text');
+  ok('버튼 테두리는 선', core.contextOf(feat({ type: 'FRAME', prop: 'stroke', names: BTN, w: 81, h: 36 })) === 'stroke');
+  s = sug({ kind: 'bdl', entry: M.bdl['bg/gray98%'], styleMode: 'light', context: 'control' });
+  ok('bg/ 가 버튼 면이면 container 로', s.target === 'plain/container/subtle', s.target);
+  s = sug({ kind: 'bdl', entry: M.bdl['bg/white'], styleMode: 'light', context: 'control' });
+  ok('흰 버튼·입력칸 면은 container/subtle2', s.target === 'plain/container/subtle2', s.target);
+  s = sug({ kind: 'bdl', entry: M.bdl['bg/white'], styleMode: 'light', context: 'surface' });
+  ok('화면 바탕은 그대로 background/normal', s.target === 'plain/background/normal' && s.checked, s.target);
 
   log('suggest — primitives by context');
   s = sug({ kind: 'bdl', entry: M.bdl['Gray/95'], styleMode: 'light', context: 'surface' });
