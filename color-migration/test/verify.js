@@ -115,6 +115,31 @@
   ok('BDL 도 Master 로 바로 간다', s.target === 'label/normal', s);
   s = rsug({ kind: 'bdl', entry: R.bdl['Semantic/Grade/Grade-1'], styleMode: 'light', context: 'badge' });
   ok('등급색은 Master 로 돌리면 값이 달라져 확인 필요', s.target === 'grade/point/1' && !s.checked, s);
+  log('→ Master · 쓰인 자리에 따라 갈리는 중립 계열');
+  s = rsug({ kind: 'master', entry: R.foundation['plain/background/normal'], isText: true, context: 'text' });
+  ok('흰 바탕 토큰이 글자에 쓰이면 static/white', s.target === 'static/white' && s.checked, s);
+  s = rsug({ kind: 'master', entry: R.foundation['plain/background/normal'], context: 'surface' });
+  ok('면에 쓰이면 그대로 background/common/normal', s.target === 'background/common/normal', s.target);
+  s = rsug({ kind: 'master', entry: R.foundation['plain/textIcon/subtle3'], context: 'surface' });
+  ok('흰 잉크 토큰이 면에 쓰이면 background/common/normal', s.target === 'background/common/normal', s.target);
+  s = rsug({ kind: 'master', entry: R.foundation['plain/background/subtle'], context: 'control' });
+  ok('버튼 면이면 interactive 계열', s.target === 'interactive/common/subtle' && !s.checked, s);
+  s = rsug({ kind: 'master', entry: R.foundation['plain/background/subtle'], context: 'stroke' });
+  ok('선이면 stroke 계열', s.target === 'stroke/subtle', s.target);
+  s = rsug({ kind: 'master', entry: R.foundation['functional/stock/up/normal'], isText: true, context: 'text' });
+  ok('뜻이 있는 계열은 자리로 바뀌지 않는다 — 주가 상승은 status/negative 가 되지 않는다',
+     s.target === 'stock/up/normal', s.target);
+  s = rsug({ kind: 'master', entry: R.foundation['functional/highlight/strong/green'], context: 'surface' });
+  ok('하이라이트 초록도 정정주문색으로 새지 않는다', s.target === 'highlight/point/green', s.target);
+
+  log('→ Master · 대응이 없으면 그대로');
+  s = rsug({ kind: 'master', entry: R.foundation['utility/divider'], context: 'divider' });
+  ok('Master 에 없는 토큰은 그대로 둔다', s.status === 'keep' && !s.target && !s.checked, s);
+  ok('BDL 은 그대로 둘 수 없으므로 Foundation 토큰으로 간다',
+     R.bdl['Semantic/Divider/basic'].viaFoundation === true && R.bdl['Semantic/Divider/basic'].target === 'utility/divider',
+     R.bdl['Semantic/Divider/basic']);
+  ok('그 목적지도 키를 들고 있다', /^[0-9a-f]{40}$/.test((R.tokens['utility/divider'] || {}).key || ''));
+
   ok('역방향 맥락 후보는 Master 이름', R.contexts.every(function (c) { return c.candidates.every(function (n) { return !!R.tokens[n]; }); }));
 
   log('suggest — table entries');

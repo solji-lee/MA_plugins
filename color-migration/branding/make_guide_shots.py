@@ -34,8 +34,8 @@ PICKS_TO_MASTER = [
     ('bdl', 'Semantic/Badge/red', 'badge', 'fills', False),
     ('master', 'functional/brand/normal', 'control', 'fills', False),
     ('bdl', 'stroke/gray90%', 'stroke', 'strokes', False),
-    ('master', 'functional/riskGrade/heavy/1', 'text', 'fills', True),
-    ('masterPrimitive', 'gray/990', 'icon', 'fills', False),
+    ('master', 'plain/background/normal', 'text', 'fills', True),
+    ('master', 'utility/divider', 'divider', 'fills', False),
 ]
 PICKS = [
     ('bdl', 'Semantic/Bg/white', 'surface', 'fills', False),

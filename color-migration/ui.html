@@ -146,6 +146,7 @@ let KIND = KIND_BY_DIR.toMaster;
 const BADGE = {
   auto: ['자동', 'ok'], exact: ['정확', 'ok'], match: ['값 일치', 'ok'],
   approx: ['근사', 'warn'], review: ['확인', 'warn'], prim: ['원시', 'neutral'],
+  keep: ['그대로', 'neutral'],
 };
 const ICON = {
   text: '<path d="M4 4h8M8 4v8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>',
@@ -238,12 +239,13 @@ function rowHtml(r) {
     <span class="arrow">→</span>
     <button class="tgt${r.target ? '' : ' none'}" data-pick="${esc(r.id)}" aria-haspopup="listbox" aria-label="${esc(r.name)} 목적지 바꾸기">
       ${sw(r.target ? tokenValue(r.target, r.mode) : null)}
-      <span class="txt">${r.target ? (() => { const [a, z] = splitName(r.target);
+      <span class="txt">${r.status === 'keep' ? '<span class="nm">그대로 둠</span><span class="sub">대응 토큰이 없습니다</span>'
+        : r.target ? (() => { const [a, z] = splitName(r.target);
         return `<span class="nm" title="${esc(r.target)}">${esc(a)}</span>${r.clash
           ? `<span class="sub clash" title="이름이 말하는 역할과 실제 쓰임이 다릅니다">쓰임 기준 → ${esc(splitName(r.clash)[0])}</span>`
           : `<span class="sub">${esc(z || (S.tokens[r.target].collection === 'colorScale' ? 'Foundation 원시' : ''))}</span>`}`; })()
         : '<span class="nm">대상 없음 · 고르기</span>'}</span>
-      ${b ? `<span class="badge ${b[1]}">${b[0]}${approxNote}</span>` : ''}
+      ${(r.target ? b : BADGE[r.status]) ? `<span class="badge ${(r.target ? b : BADGE[r.status])[1]}">${(r.target ? b : BADGE[r.status])[0]}${approxNote}</span>` : ''}
       <svg class="chev" width="10" height="10" viewBox="0 0 10 10"><path d="M2.5 4l2.5 2.5L7.5 4" stroke="currentColor" fill="none" stroke-width="1.2"/></svg>
     </button></div>`;
 }

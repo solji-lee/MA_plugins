@@ -13,7 +13,10 @@
   → Foundation  BDL 스타일과 MDS Master 변수를 MDS 3.0 으로
 • 목적지 쪽 변수에 이미 묶인 색은 건드리지 않습니다.
 • 되돌릴 때 색이 달라지는 자리(Master 와 Foundation 의 값이 다른 토큰)는 자동으로
-  바꾸지 않고 확인 필요로 올립니다. Master 에 없는 토큰은 대상 없음으로 둡니다.
+  바꾸지 않고 확인 필요로 올립니다.
+• 같은 색이라도 쓰인 자리에 따라 짝을 다르게 제안합니다. 흰 바탕은 background,
+  흰 글자는 static/white, 버튼 면은 interactive, 선은 stroke 계열로 갑니다.
+• Master 에 대응이 없는 Foundation 토큰은 그대로 둡니다.
 ```
 
 ## 2026-09-23 — 옛 BDL 이름 인식

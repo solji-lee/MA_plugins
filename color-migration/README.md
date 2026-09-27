@@ -12,6 +12,12 @@ Figma의 Check designs처럼 원본 → 목적지를 나열하고, 체크한 항
 
 목적지 쪽 변수에 이미 묶인 페인트는 건드리지 않는다. 방향을 바꾸면 다시 검사한다.
 
+→ Master 에서는 **쓰인 자리**를 보고 짝을 고른다. Master 가 역할로 갈라 둔 계열(label ·
+interactive · stroke · background)에 한해서다 — 흰 바탕은 `background/common/normal`,
+같은 흰색이라도 글자면 `static/white`, 버튼 면이면 `interactive/common/subtle`. 색이 뜻을
+지니는 계열(stock · brand · status · highlight)은 값이 같아도 자리로 바꾸지 않는다.
+Master 에 대응이 없는 Foundation 토큰은 그대로 둔다.
+
 아래 표는 **→ Foundation** 기준이다. 반대 방향은 원본과 목적지가 바뀔 뿐 판단은 같은 표에서 나온다.
 
 | 찾는 것 | 알아보는 방법 | 목적지 |
